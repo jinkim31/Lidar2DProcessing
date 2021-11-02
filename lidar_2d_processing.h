@@ -13,24 +13,34 @@
 
 using namespace std;
 
-typedef double tfloat;
-typedef vector<tfloat> Ranges;
-
 namespace ld2
 {
+typedef double tfloat;
+typedef vector<tfloat> Ranges;
+typedef vector<bool> Indicator;
+
+struct Subranges
+{
+    int index;
+    Ranges ranges;
+};
 
 void distBandPassFilter(Ranges &ranges, tfloat min, tfloat max);
 
 void generateGaussianMask(Ranges &mask, double sigma,int size = -1);
 //when size==-1 , it automatically decides size to be 4*sigma
 
-void convolute(const Ranges &a, const Ranges &b, Ranges &out);
+void convolute(const Ranges &ranges, const Ranges &mask, Ranges &output);
 
 void diff(const Ranges &input, Ranges& output);
 
-void findZeroCrossing(const Ranges &input, Ranges output);
+void findZeroCrossing(const Ranges &input, Ranges &output, double threshold = 0.2);
 
-void printRanges(const Ranges ranges);
+bool splitRanges(const Ranges &ranges, const Ranges &indicator, vector<Subranges> &splitRanges, int padding = 0);
+
+bool assessForObstacle(vector<Subranges> &splitRanges,  double openThreshold, int &startIndex, int &length);
+
+void printRanges(const Ranges &ranges);
 }
 
 #endif //MISSION_CONTROL_LIDAR_2D_PROCESSING_H

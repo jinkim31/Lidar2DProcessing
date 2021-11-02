@@ -41,28 +41,28 @@ void ld2::generateGaussianMask(Ranges &mask, double sigma, int size)
     }
 }
 
-void ld2::convolute(const Ranges &a, const Ranges &b, Ranges &out)
+void ld2::convolute(const Ranges &ranges, const Ranges &mask, Ranges &output)
 {
-    out.resize(a.size());
+    output.resize(ranges.size());
     Ranges::const_iterator iterJ;
     tfloat sum;
     int i, j;
-    for (i=0; i<=a.size() - b.size(); i++)
+    for (i=0; i <= ranges.size() - mask.size(); i++)
     {
         sum = 0;
-        for (iterJ = b.begin(), j=0; iterJ != b.end(); iterJ++, j++)
+        for (iterJ = mask.begin(), j=0; iterJ != mask.end(); iterJ++, j++)
         {
-            sum += a[i+j] * *iterJ;
+            sum += ranges[i + j] * *iterJ;
         }
-        out[i+b.size()/2] = sum;
+        output[i + mask.size() / 2] = sum;
     }
-    for (i=0; i<=b.size()/2; i++)
+    for (i=0; i <= mask.size() / 2; i++)
     {
-        out[i] = a[i];
+        output[i] = ranges[i];
     }
-    for (i=a.size() - b.size()/2; i<=a.size(); i++)
+    for (i= ranges.size() - mask.size() / 2; i <= ranges.size(); i++)
     {
-        out[i] = a[i];
+        output[i] = ranges[i];
     }
 }
 
@@ -80,12 +80,117 @@ void ld2::diff(const Ranges &input, Ranges &output)
     }
 }
 
-void ld2::findZeroCrossing(const Ranges &input, Ranges output)
+void ld2::findZeroCrossing(const Ranges &input, Ranges &output, double threshold)
 {
-
+    output.resize(input.size());
+    Ranges::const_iterator iter;
+    int i;
+    for(iter = input.begin()+1, i=1; iter != input.end()-1; iter++, i++)
+    {
+        output[i] = 0;
+        if(*(iter-1) * *(iter) >= 0) continue; //same sign -> skip
+        if(abs(*(iter-1)) < threshold || abs(*iter) < threshold) continue; //below threshold -> skip
+        output[i] = 1;
+    }
 }
 
-void ld2::printRanges(const Ranges ranges)
+bool ld2::splitRanges(const Ranges &ranges, const Ranges &indicator, vector<Subranges> &splitRanges, int padding)
+{
+    if(ranges.size() != indicator.size()) return false;
+
+    Ranges::const_iterator iter;
+
+    splitRanges.push_back(Subranges());
+    int splitRangesIdx = 0;
+    int i;
+    for(iter = ranges.begin(), i=0; iter != ranges.end(); iter++, i++)
+    {
+        if(indicator[i] == 1)
+        {
+            splitRanges.push_back(Subranges());
+            splitRangesIdx++;
+            splitRanges[splitRangesIdx].index = i;
+        }
+        else
+        {
+            splitRanges[splitRangesIdx].ranges.push_back(*iter);
+        }
+    }
+
+    // padding
+    vector<Subranges>::iterator rIter;
+    for(rIter = splitRanges.begin(); rIter != splitRanges.end(); rIter++)
+    {
+        for(int i=0; i<padding; i++)
+        {
+            // pop back
+            rIter->ranges.pop_back();
+
+            // pop front
+            rIter->ranges.erase(rIter->ranges.begin());
+
+            //increase index
+            rIter->index++;
+
+            // empty check
+            if(rIter->ranges.empty())
+            {
+                splitRanges.erase(rIter);
+                break;
+            }
+        }
+    }
+    return true;
+}
+
+
+bool ld2::assessForObstacle(vector<Subranges> &splitRanges, double openThreshold, int &startIndex, int &length)
+{
+    vector<Subranges>::iterator rIter;
+    Ranges::const_iterator iter;
+
+    for(rIter = splitRanges.begin(); rIter != splitRanges.end(); rIter++)
+    {
+        for(iter = rIter->ranges.begin(); iter != rIter->ranges.end(); iter++)
+        {
+            if(openThreshold < *iter)
+            {
+                splitRanges.erase(rIter);
+                rIter--;
+                break;
+            }
+        }
+    }
+
+    if(splitRanges.size() == 0)
+    {
+        return false;
+    }
+    else if(splitRanges.size() == 1)
+    {
+        startIndex = splitRanges[0].index;
+        length = splitRanges[0].ranges.size();
+        return true;
+    }
+    else
+    {
+        Subranges* bestSubranges = &splitRanges[0];
+
+        for(rIter = splitRanges.begin()+1; rIter != splitRanges.end(); rIter++)
+        {
+            if(bestSubranges->ranges.size() < rIter->ranges.size())
+            {
+                bestSubranges = &(*rIter);
+            }
+        }
+
+        startIndex = bestSubranges->index;
+        length = bestSubranges->ranges.size();
+        return true;
+    }
+}
+
+void ld2::printRanges(const Ranges &ranges)
 {
     Ranges::const_iterator iter;
 
@@ -96,4 +201,7 @@ void ld2::printRanges(const Ranges ranges)
     }
     cout<<"]"<<endl;
 }
+
+
+
 
