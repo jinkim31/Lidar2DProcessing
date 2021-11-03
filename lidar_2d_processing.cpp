@@ -60,7 +60,7 @@ void ld2::convolute(const Ranges &ranges, const Ranges &mask, Ranges &output)
     {
         output[i] = ranges[i];
     }
-    for (i= ranges.size() - mask.size() / 2; i <= ranges.size(); i++)
+    for (i= ranges.size() - mask.size() / 2; i < ranges.size(); i++)
     {
         output[i] = ranges[i];
     }
@@ -123,19 +123,21 @@ bool ld2::splitRanges(const Ranges &ranges, const Ranges &indicator, vector<Subr
     {
         for(int i=0; i<padding; i++)
         {
-            // pop back
-            rIter->ranges.pop_back();
+            if(rIter->ranges.size() > 2)
+            {
+                // pop back
+                rIter->ranges.pop_back();
 
-            // pop front
-            rIter->ranges.erase(rIter->ranges.begin());
+                // pop front
+                rIter->ranges.erase(rIter->ranges.begin());
 
-            //increase index
-            rIter->index++;
-
-            // empty check
-            if(rIter->ranges.empty())
+                //increase index
+                rIter->index++;
+            }
+            else
             {
                 splitRanges.erase(rIter);
+                rIter--;
                 break;
             }
         }
@@ -144,7 +146,7 @@ bool ld2::splitRanges(const Ranges &ranges, const Ranges &indicator, vector<Subr
 }
 
 
-bool ld2::assessForObstacle(vector<Subranges> &splitRanges, double openThreshold, int &startIndex, int &length)
+bool ld2::assessForObstacle(vector<Subranges> &splitRanges, double openThreshold, const vector<int> &excludeIndexList, int centerIdx, int &startIndex, int &length)
 {
     vector<Subranges>::iterator rIter;
     Ranges::const_iterator iter;
@@ -154,6 +156,25 @@ bool ld2::assessForObstacle(vector<Subranges> &splitRanges, double openThreshold
         for(iter = rIter->ranges.begin(); iter != rIter->ranges.end(); iter++)
         {
             if(openThreshold < *iter)
+            {
+                splitRanges.erase(rIter);
+                rIter--;
+                break;
+            }
+
+            vector<int>::const_iterator exIter;
+            bool exclude = false;
+            for (exIter = excludeIndexList.begin(); exIter != excludeIndexList.end(); exIter++)
+            {
+                //cout<<"evaluation:"<<rIter->index<<"~"<<rIter->index + rIter->ranges.size()<<" / "<<*exIter<<endl;
+                if (rIter->index <= *exIter && *exIter <= rIter->index + rIter->ranges.size())
+                {
+                    exclude = true;
+                    break;
+                }
+            }
+
+            if(exclude)
             {
                 splitRanges.erase(rIter);
                 rIter--;
@@ -178,7 +199,7 @@ bool ld2::assessForObstacle(vector<Subranges> &splitRanges, double openThreshold
 
         for(rIter = splitRanges.begin()+1; rIter != splitRanges.end(); rIter++)
         {
-            if(bestSubranges->ranges.size() < rIter->ranges.size())
+            if(abs(int(bestSubranges->index+bestSubranges->ranges.size()/2 - centerIdx)) > abs(int(rIter->index+rIter->ranges.size()/2 - centerIdx)))
             {
                 bestSubranges = &(*rIter);
             }
@@ -187,6 +208,27 @@ bool ld2::assessForObstacle(vector<Subranges> &splitRanges, double openThreshold
         startIndex = bestSubranges->index;
         length = bestSubranges->ranges.size();
         return true;
+    }
+}
+
+void ld2::hysteresisFilter(const Ranges &input, Ranges &output, double threshold)
+{
+    output.resize(input.size());
+
+    Ranges::const_iterator iter;
+    output[0] = input[0];
+    int i;
+    for(iter = input.begin()+1, i=1; iter != input.end(); iter++, i++)
+    {
+        // determine continuity
+        if(abs(*iter - *(iter-1)) < threshold)
+        {
+            output[i] = *iter;
+        }
+        else
+        {
+            output[i] = tfloat (1/0.0);//inf
+        }
     }
 }
 

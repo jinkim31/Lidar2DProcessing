@@ -15,9 +15,8 @@ using namespace std;
 
 namespace ld2
 {
-typedef double tfloat;
+typedef float tfloat;
 typedef vector<tfloat> Ranges;
-typedef vector<bool> Indicator;
 
 struct Subranges
 {
@@ -38,7 +37,9 @@ void findZeroCrossing(const Ranges &input, Ranges &output, double threshold = 0.
 
 bool splitRanges(const Ranges &ranges, const Ranges &indicator, vector<Subranges> &splitRanges, int padding = 0);
 
-bool assessForObstacle(vector<Subranges> &splitRanges,  double openThreshold, int &startIndex, int &length);
+bool assessForObstacle(vector<Subranges> &splitRanges,  double openThreshold, const vector<int> &excludeIndexList, int centerIdx, int &startIndex, int &length);
+
+void hysteresisFilter(const Ranges &input, Ranges &output, double threshold);
 
 void printRanges(const Ranges &ranges);
 }
